@@ -73,7 +73,7 @@ jobs:
         kubectl apply -f k8s/service.yaml
         sed "s|{{ECR_PEDIDOS}}|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" \
           k8s/deployment.yaml | kubectl apply -f -
-        kubectl apply -f k8s/ingress.yaml
+        # Ingress removido - usando Service LoadBalancer (ALB Controller nao instalado)
 
     - name: Aguardar deployment
       run: |
@@ -106,18 +106,21 @@ jobs:
           curl -sf http://localhost:8080/actuator/health/liveness || exit 1
         echo "Liveness OK"
 
-    - name: Verificar ALB
+    - name: Verificar LoadBalancer
       if: always()
       run: |
-        ALB_URL=$(kubectl get ingress pedidos-ingress -n ${{ env.K8S_NAMESPACE }} \
+        echo "Obtendo URL do LoadBalancer..."
+        LB_URL=$(kubectl get svc pedidos-service -n ${{ env.K8S_NAMESPACE }} \
           -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
 
-        if [ -n "$ALB_URL" ]; then
-          echo "ALB URL: http://$ALB_URL"
-          curl -sf "http://$ALB_URL/actuator/health" && echo "ALB respondendo!" || \
-            echo "ALB não respondeu (pode estar inicializando)"
+        if [ -n "$LB_URL" ]; then
+          echo "LoadBalancer URL: http://$LB_URL"
+          echo "LB_URL=$LB_URL" >> $GITHUB_ENV
+          sleep 10
+          curl -sf "http://$LB_URL/actuator/health" && echo "LoadBalancer respondendo!" || \
+            echo "LoadBalancer ainda inicializando (normal em primeiro deploy)"
         else
-          echo "ALB ainda não provisionado"
+          echo "LoadBalancer ainda nao provisionado"
         fi
 
     - name: Resumo do Deploy
@@ -135,6 +138,10 @@ jobs:
         echo "**Kubernetes:**" >> $GITHUB_STEP_SUMMARY
         echo "- Cluster: \`$EKS_CLUSTER_NAME\`" >> $GITHUB_STEP_SUMMARY
         echo "- Namespace: \`$K8S_NAMESPACE\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        LB_HOSTNAME=$(kubectl get svc pedidos-service -n $K8S_NAMESPACE \
+          -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "Nao disponivel")
+        echo "**LoadBalancer:** \`$LB_HOSTNAME\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Status dos Pods:**" >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY

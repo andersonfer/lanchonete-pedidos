@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -44,6 +46,7 @@ jobs:
           -Dsonar.token=${{ secrets.SONAR_TOKEN }}
 
     - name: Verificar Quality Gate
+      if: github.event_name == 'pull_request'
       uses: sonarsource/sonarqube-quality-gate-action@master
       timeout-minutes: 5
       env:
