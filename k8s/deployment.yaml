@@ -61,7 +61,7 @@ spec:
               name: rabbitmq-secret
               key: RABBITMQ_DEFAULT_PASS
         - name: CLIENTES_SERVICE_URL
-          value: "http://clientes-service:8080"
+          value: "http://clientes-service:80"
         resources:
           requests:
             memory: "256Mi"
